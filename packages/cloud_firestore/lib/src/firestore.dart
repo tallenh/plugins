@@ -20,6 +20,8 @@ class Firestore {
       <int, StreamController<DocumentSnapshot>>{};
 
   Firestore._() {
+    print('777777777777777 Construct Firestore 777777777777777');
+    channel.invokeMethod('Firestore#Clear');
     channel.setMethodCallHandler((MethodCall call) {
       if (call.method == 'QuerySnapshot') {
         final QuerySnapshot snapshot = new QuerySnapshot._(call.arguments);

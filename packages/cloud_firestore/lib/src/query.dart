@@ -23,8 +23,8 @@ class Query {
   final List<String> _pathComponents;
   final Map<String, dynamic> _parameters;
 
-  /// A string containing the slash-separated path to this Query (relative to
-  /// the root of the database).
+  /// A string containing the slash-separated path to this this Query
+  /// (relative to the root of the database).
   String get path => _pathComponents.join('/');
 
   Query _copyWithParameters(Map<String, dynamic> parameters) {
@@ -42,6 +42,18 @@ class Query {
       ..addAll(<String, dynamic>{
         'path': path,
       });
+  }
+
+  Future<QuerySnapshot> get() {
+    return Firestore.channel.invokeMethod(
+      'Query#get',
+      <String, dynamic>{
+        'path': path,
+        'parameters': _parameters,
+      },
+    ).then((dynamic result) {
+      return new QuerySnapshot._(result);
+    });
   }
 
   /// Notifies of query results at this location
@@ -125,6 +137,14 @@ class Query {
     assert(!_parameters.containsKey('orderBy'));
     return _copyWithParameters(<String, dynamic>{
       'orderBy': <dynamic>[field, descending]
+    });
+  }
+
+  /// Creates and returns a new [Query]
+  Query limit(int i) {
+    assert(!_parameters.containsKey('limit'));
+    return _copyWithParameters(<String, dynamic>{
+      'limit': <dynamic>[i]
     });
   }
 }

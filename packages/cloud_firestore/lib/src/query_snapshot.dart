@@ -18,7 +18,7 @@ class QuerySnapshot {
             data['documents'].length, (int index) {
           return new DocumentSnapshot._(
             data['paths'][index],
-            data['documents'][index],
+            data['documents'][index]
           );
         }),
         documentChanges = new List<DocumentChange>.generate(

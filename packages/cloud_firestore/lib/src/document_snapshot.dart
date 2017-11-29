@@ -13,10 +13,12 @@ class DocumentSnapshot {
   /// Represents the document's reference
   final String path;
 
+  final bool exists;
+
   /// Contains all the data of this snapshot
   final Map<String, dynamic> data;
 
-  DocumentSnapshot._(this.path, this.data);
+  DocumentSnapshot._(this.path, this.data, [this.exists = true]);
 
   /// Reads individual values from the snapshot
   dynamic operator [](String key) => data[key];

@@ -4,7 +4,11 @@
 
 package io.flutter.plugins.firebase.cloud_firestore;
 
+import android.support.annotation.NonNull;
 import android.util.SparseArray;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentReference;
@@ -81,11 +85,17 @@ public class CloudFirestorePlugin implements MethodCallHandler {
       }
     }
     List<Object> orderBy = (List<Object>) parameters.get("orderBy");
-    if (orderBy == null) return query;
-    String orderByFieldName = (String) orderBy.get(0);
-    Boolean descending = (Boolean) orderBy.get(1);
-    Query.Direction direction = descending ? Query.Direction.DESCENDING : Query.Direction.ASCENDING;
-    return query.orderBy(orderByFieldName, direction);
+    if (orderBy != null) {
+      String orderByFieldName = (String) orderBy.get(0);
+      Boolean descending = (Boolean) orderBy.get(1);
+      Query.Direction direction = descending ? Query.Direction.DESCENDING : Query.Direction.ASCENDING;
+      query = query.orderBy(orderByFieldName, direction);
+    }
+    List<Integer> limit = (List<Integer>) parameters.get("limit");
+    if (limit != null) {
+      query = query.limit(limit.get(0));
+    }
+    return query;
   }
 
   private class DocumentObserver implements EventListener<DocumentSnapshot> {
@@ -122,6 +132,7 @@ public class CloudFirestorePlugin implements MethodCallHandler {
       if (e != null) {
         // TODO: send error
         System.out.println(e);
+        System.out.println(handle);
       }
       Map<String, Object> arguments = new HashMap<>();
       arguments.put("handle", handle);
@@ -166,10 +177,26 @@ public class CloudFirestorePlugin implements MethodCallHandler {
   @Override
   public void onMethodCall(MethodCall call, final Result result) {
     switch (call.method) {
+      case "Firestore#Clear":
+        {
+          System.out.println("XTXTXTXTXTXTX Listeners: " + listenerRegistrations.size());
+          System.out.println("XTXTXTXTXTXTX Observers: " + observers.size());
+          System.out.println("XTXTXTXTXTXTX Doc Observers: " + documentObservers.size());
+          for(int i = 0; i < listenerRegistrations.size(); i++) {
+            int key = listenerRegistrations.keyAt(i);
+            listenerRegistrations.get(key).remove();
+            observers.remove(key);
+          }
+          listenerRegistrations.clear();
+          observers.clear();
+          nextHandle = 0;
+          break;
+        }
       case "Query#addSnapshotListener":
         {
           Map<String, Object> arguments = call.arguments();
           int handle = nextHandle++;
+          System.out.println("handle " + handle);
           EventObserver observer = new EventObserver(handle);
           observers.put(handle, observer);
           listenerRegistrations.put(handle, getQuery(arguments).addSnapshotListener(observer));
@@ -185,9 +212,11 @@ public class CloudFirestorePlugin implements MethodCallHandler {
           listenerRegistrations.put(
               handle, getDocumentReference(arguments).addSnapshotListener(observer));
           result.success(handle);
+          break;
         }
       case "Query#removeListener":
         {
+          System.out.println("removing firestore listener");
           Map<String, Object> arguments = call.arguments();
           // TODO(arthurthompson): find out why removeListener is sometimes called without handle.
           int handle = (Integer) arguments.get("handle");
@@ -213,6 +242,57 @@ public class CloudFirestorePlugin implements MethodCallHandler {
           result.success(null);
           break;
         }
+      case "DocumentReference#get":
+        {
+          Map<String, Object> arguments = call.arguments();
+          DocumentReference documentReference = getDocumentReference(arguments);
+          documentReference.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+              if (task.isSuccessful()) {
+                System.out.println(task.getResult().getId() + " => " + task.getResult().getData());
+                Map arguments = new HashMap<String, Object>();
+                arguments.put("id", task.getResult().getId());
+                arguments.put("exists", task.getResult().exists());
+                arguments.put("data", task.getResult().getData());
+                result.success(arguments);
+              } else {
+                //Log.w(TAG, "Error getting documents.", task.getException());
+                result.error("","",task.getException());
+              }
+            }
+          });
+          break;
+        }
+      case "Query#get":
+      {
+        System.out.println("in java Query#get");
+        Map<String, Object> arguments = call.arguments();
+        getQuery(arguments).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+          @Override
+          public void onComplete(@NonNull Task<QuerySnapshot> task) {
+            if (task.isSuccessful()) {
+              Map arguments = new HashMap<String, Object>();
+              List paths = new ArrayList<String>();
+              List docs = new ArrayList<Object>();
+              List changes = new ArrayList<Object>();
+              for (DocumentSnapshot document : task.getResult()) {
+                System.out.println(document.getId() + " => " + document.getData());
+                paths.add(document.getId());
+                docs.add(document.getData());
+              }
+              arguments.put("paths", paths);
+              arguments.put("documents", docs);
+              arguments.put("documentChanges", changes);
+              result.success(arguments);
+            } else {
+              //Log.w(TAG, "Error getting documents.", task.getException());
+              result.error("","",task.getException());
+            }
+          }
+        });
+        break;
+      }
       default:
         {
           result.notImplemented();

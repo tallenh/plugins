@@ -35,6 +35,17 @@ class DocumentReference {
       <String, dynamic>{'path': path},
     );
   }
+  
+  Future<DocumentSnapshot> get() {
+    return Firestore.channel.invokeMethod(
+      'DocumentReference#get',
+      <String, dynamic>{'path': path},
+    ).then((dynamic result) {
+      print('result xxx');
+      print(result);
+      return new DocumentSnapshot._(result['id'], result['data']);
+    });
+  }
 
   /// Notifies of documents at this location
   // TODO(jackson): Reduce code duplication with [Query]
